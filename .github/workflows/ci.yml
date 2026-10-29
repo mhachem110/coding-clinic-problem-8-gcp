@@ -1,22 +1,29 @@
 name: CI
 
+# Run the demo checks whenever code is pushed or a pull request changes.
 on:
   push:
   pull_request:
 
 permissions:
+  # The job only needs to read repository files.
   contents: read
 
 jobs:
   test:
     runs-on: ubuntu-24.04
     steps:
+      # Get the code and a known Python version on the GitHub runner.
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
+      # Unit tests cover safe, unsafe, and malformed plans.
       - run: python -m unittest discover -s tests -v
+      # The safe sample must exit with 0.
       - run: python check_plan.py examples/pass-plan.json
+      # The unsafe sample must exit with 1. Catching that expected failure
+      # makes this CI step pass; any other exit code fails the step.
       - run: |
           if python check_plan.py examples/fail-plan.json; then
             exit 1

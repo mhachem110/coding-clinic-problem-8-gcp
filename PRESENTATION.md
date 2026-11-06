@@ -1,62 +1,53 @@
-# Presentation Script: GCP Terraform Plan Checker
+# GCP Terraform Plan Policy Checker
 
-**Estimated time:** 2–3 minutes
+## Pre-deployment policy demonstration
 
-## The script
+### 1. The problem
 
-### 1. Introduce the problem
+Terraform plans show proposed infrastructure changes before deployment. A plan could still configure a publicly accessible Cloud Storage bucket, omit useful ownership labels, or grant access to everyone.
 
-“Hi, today I’m presenting a small tool that checks a Terraform plan for risky Google Cloud Storage settings.
+**Goal:** catch these issues before infrastructure is deployed.
 
-Terraform can show us what it plans to create or change before those changes happen. But a plan can still include a public bucket, missing ownership labels, or access for everyone. This checker looks for those problems before deployment.”
+### 2. The solution
 
-### 2. Explain the solution
-
-“The checker reads Terraform’s plan as JSON. It checks three simple rules:
-
-1. Every planned storage bucket must have public access prevention turned on.
-2. Every bucket must have an `environment` label and an `owner` label.
-3. Bucket access rules must not include `allUsers` or `allAuthenticatedUsers`, which represent public access.
-
-If the plan is safe, it prints `PASS`. If it finds problems, it prints each one and exits with a failure code. That means a CI workflow can stop the plan from moving forward until someone fixes it.”
-
-### 3. Show the flow
+This Python checker reads Terraform plan JSON and checks a small set of Cloud Storage policies. It reports violations before deployment and can be used as a CI check.
 
 ```mermaid
 flowchart LR
-    A[Terraform plan JSON] --> B[Python checker]
-    B --> C{Do the rules pass?}
-    C -->|Yes| D[PASS: continue]
-    C -->|No| E[Show problems: stop CI]
+    A[Terraform plan] --> B[JSON output]
+    B --> C[Policy checker]
+    C --> D{Policies pass?}
+    D -->|Yes| E[Continue CI]
+    D -->|No| F[Report issues and stop CI]
 ```
 
-“The checker only reads the plan file. It does not connect to Google Cloud, create buckets, or change infrastructure.”
+### 3. Policies checked
 
-### 4. Demonstrate a passing plan
+| Resource | Required policy |
+| --- | --- |
+| Cloud Storage bucket | Public access prevention is `enforced`. |
+| Cloud Storage bucket | Nonempty `environment` and `owner` labels are present. |
+| Bucket IAM member, binding, or policy | No public principals: `allUsers` or `allAuthenticatedUsers`. |
 
-“First, I’ll check the safe example.”
+Unknown required values fail the check because their safety cannot be confirmed before deployment. Resources that are only being deleted are skipped.
+
+### 4. Demonstration: passing plan
 
 ```bash
 python check_plan.py examples/pass-plan.json
 ```
 
-Expected output:
-
 ```text
 PASS: GCP storage policy checks passed
 ```
 
-“This plan passes because the bucket has public access prevention enabled, has both required labels, and does not grant public access.”
+The example bucket has public access prevention enabled, both required labels, and no public IAM principal.
 
-### 5. Demonstrate a failing plan
-
-“Now I’ll check an example that has problems.”
+### 5. Demonstration: failing plan
 
 ```bash
 python check_plan.py examples/fail-plan.json
 ```
-
-Expected output:
 
 ```text
 FAIL: google_storage_bucket.example: public access prevention must be enforced
@@ -64,42 +55,31 @@ FAIL: google_storage_bucket.example: missing labels: owner
 FAIL: google_storage_bucket_iam_member.public: public IAM member allUsers is not allowed
 ```
 
-“The checker reports all three problems in one run, so the developer knows what to fix. It exits with code 1, which tells CI that the check failed.”
+The checker reports all detected violations in one run. Exit code `1` lets CI identify the plan as unsafe under these policies.
 
-### 6. Explain the code simply
-
-“The main file is `check_plan.py`. It opens the JSON, looks through the planned resources, and checks the rules that apply to each resource. It ignores resources that are only being deleted. If a required value is unknown before deployment, the checker fails closed: it reports that the value cannot be checked instead of assuming it is safe.”
+### 6. How the checker works
 
 ```mermaid
 flowchart TD
-    A[Read JSON file] --> B[Look at planned resources]
-    B --> C{Bucket, IAM rule, or other?}
-    C -->|Bucket| D[Check protection and labels]
-    C -->|IAM| E[Check for public members]
-    C -->|Other| F[Skip]
-    D --> G[Print PASS or problems]
+    A[Load plan JSON] --> B[Read planned resource changes]
+    B --> C{Resource type}
+    C -->|Storage bucket| D[Check public access setting and labels]
+    C -->|Bucket IAM| E[Check for public principals]
+    C -->|Other or delete only| F[Skip]
+    D --> G[Return findings]
     E --> G
     F --> G
 ```
 
-### 7. Close
+**Main file:** `check_plan.py`  
+**Examples:** `examples/pass-plan.json` and `examples/fail-plan.json`  
+**Automated checks:** `tests/test_check_plan.py`
 
-“In summary, this is a small pre-deployment safety check. It helps catch public access and missing metadata early, and it can run automatically in CI. The examples let us demonstrate both a passing and failing plan without cloud credentials or real infrastructure.”
+### 7. Scope and takeaway
 
-## Optional: run the tests
+- The checker reads a local plan JSON file; it does not call Google Cloud or modify infrastructure.
+- The sample plans make the demonstration reproducible without cloud credentials.
+- The GitHub Actions workflow runs the checks automatically.
+- This is a focused example policy check, not a complete audit of every GCP security setting.
 
-If there is time, show that the project also includes automated tests:
-
-```bash
-python -m unittest discover -s tests -v
-```
-
-## Quick reference
-
-| Result | Meaning |
-| --- | --- |
-| Exit code `0` | The plan passed the checks. |
-| Exit code `1` | The plan has one or more policy violations. |
-| Exit code `2` | The command or input file is invalid. |
-
-The checker is a starter policy example. It checks the rules listed above; it is not a complete audit of every GCP security setting.
+**Takeaway:** reviewing a Terraform plan with simple, automated rules can catch risky storage settings before deployment.

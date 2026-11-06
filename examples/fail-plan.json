@@ -1,0 +1,26 @@
+{
+  "format_version": "1.0",
+  "resource_changes": [
+    {
+      "address": "google_storage_bucket.example",
+      "mode": "managed",
+      "type": "google_storage_bucket",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "public_access_prevention": "inherited",
+          "labels": {"environment": "demo"}
+        }
+      }
+    },
+    {
+      "address": "google_storage_bucket_iam_member.public",
+      "mode": "managed",
+      "type": "google_storage_bucket_iam_member",
+      "change": {
+        "actions": ["create"],
+        "after": {"member": "allUsers"}
+      }
+    }
+  ]
+}

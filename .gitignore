@@ -1,0 +1,10 @@
+# Terraform downloads and state stay on the machine, not in GitHub.
+.terraform/
+*.tfstate*
+# Saved plans and exported plan JSON can contain sensitive values.
+*.tfplan
+tfplan
+/plan.json
+# Python creates these cache files when the checker and tests run.
+__pycache__/
+*.pyc

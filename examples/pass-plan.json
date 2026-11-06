@@ -1,0 +1,17 @@
+{
+  "format_version": "1.0",
+  "resource_changes": [
+    {
+      "address": "google_storage_bucket.example",
+      "mode": "managed",
+      "type": "google_storage_bucket",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "public_access_prevention": "enforced",
+          "labels": {"environment": "demo", "owner": "training"}
+        }
+      }
+    }
+  ]
+}

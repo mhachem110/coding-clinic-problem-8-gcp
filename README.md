@@ -4,6 +4,8 @@
 
 Check a Terraform plan before deployment and fail CI when planned infrastructure breaks a simple policy. This version of coding challenge #8 checks Google Cloud Storage resources.
 
+See [`DESIGN.md`](DESIGN.md) for the plan flow, policy rules, and deployment boundary.
+
 ## What each file does
 
 | File | Why it is here |
